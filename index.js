@@ -130,7 +130,7 @@ const axios = require('axios');
 
 const config = {
     headers: {
-        'Authorization': 'token YOURTOKEN'
+        'Authorization': 'token YOURAPITOKEN'
     }
 };
 
@@ -274,39 +274,40 @@ async function getRepoCommits(username) {
     //Get user repos and setup variables
     const user = await getUserRepos(username);
     const commitSummary = blankCommitSummary;
+    const promiseArray = [];
 
     //For each repo
     for (let i = 0; i < user.repos.length; i++) {
-
         //Get the repos' commits
-        await axios.get(`https://api.github.com/repos/${user.repos[i].full_name}/commits?author=${user.login}`, config)
-            .then(function (response) {
-                if (response.status === 404) console.log('User not found');
-                else {
-
-                    //Check if response was and empty array
-                    if (response.data[0] !== undefined) {
-
-                        //For each commit
-                        response.data.forEach(function (commit) {
-
-                            //Grab the date in String format, make a new Date()
-                            const commitDate = new Date(commit.commit.committer.date);
-
-                            //Add to the totals
-                            commitSummary.day[weekday[commitDate.getDay()]] += 1;
-                            commitSummary.hour[commitDate.getHours()] += 1;
-                        });
-                    }
-                }
-            })
-            .catch(function (error) {
-                //console.log(error); .. don't care
-            });
+        promiseArray.push(axios.get(`https://api.github.com/repos/${user.repos[i].full_name}/commits?author=${user.login}`, config));
     }
 
-    console.timeEnd("getRepoCommits")
-    console.log(commitSummary)
+    Promise.all(promiseArray).then(function (resolvedPromises) {
+
+        resolvedPromises.forEach(response => {
+
+            if (response.status === 404) console.log('User not found');
+            else {
+                //Check if response was and empty array
+                if (response.data[0] !== undefined) {
+
+                    //For each commit
+                    response.data.forEach(function (commit) {
+
+                        //Grab the date in String format, make a new Date()
+                        const commitDate = new Date(commit.commit.committer.date);
+
+                        //Add to the totals
+                        commitSummary.day[weekday[commitDate.getDay()]] += 1;
+                        commitSummary.hour[commitDate.getHours()] += 1;
+                    });
+                }
+            }
+        });
+
+        console.timeEnd("getRepoCommits")
+        console.log(commitSummary)
+    })
 }
 
 console.time("getUserSummaryResponses");
